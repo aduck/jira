@@ -3,7 +3,7 @@ const fs = require('fs')
 const path = require('path')
 const axios = require('axios')
 const moment = require('moment')
-const {users, cookie, pullStatus = 'DEV IN PROGRESS'} = require('./conf')
+const {users, cookie, pullStatus = 'DEV IN PROGRESS', firstDayOfWeek = 1, lastDayOfWeek = 5} = require('./conf')
 const analysis = require('./analysis')
 const convert = require('./convert')
 
@@ -17,8 +17,8 @@ const getAllData = () => {
 }
 // 对照表，仅仅用来生成文件名的
 const statusMap = {
-  'DEV IN PROGRESS': 'start',
-  'Dev Resolved': 'end'
+  'DEV IN PROGRESS': '计划',
+  'Dev Resolved': '总结'
 }
 
 // main
@@ -30,6 +30,19 @@ const statusMap = {
   console.log('> 数据拉取成功')
   // 所有issue
   let allIssues = data.issuesData.issues
+  // 拿到周区间
+  let isLastday = moment().day() === lastDayOfWeek
+  let weekStart, weekEnd
+  if (pullStatus === 'Dev Resolved') {
+    // 拉已完成的任务，说明是本周
+    weekStart = moment().day(firstDayOfWeek).format('YYYYMMDD')
+    weekEnd = moment().day(lastDayOfWeek).format('YYYYMMDD')
+  } else if (pullStatus === 'DEV IN PROGRESS') {
+    // 拉计划，如果是最后一天说明是下周，不是周五就是本周
+    weekStart = moment().day(isLastday ? 7 + firstDayOfWeek : firstDayOfWeek).format('YYYYMMDD')
+    weekEnd = moment().day(isLastday ? 7 + lastDayOfWeek : lastDayOfWeek).format('YYYYMMDD')
+  }
+  let weekRange = `${moment(weekStart).format('MM/DD')}-${moment(weekEnd).format('MM/DD')}`
   // 最终结果是类型为任务或者story
   let bossIssues = allIssues.reduce((prev, cur) => {
     const {key, summary, typeName, statusName, assignee, estimateStatistic = {}} = cur
@@ -39,10 +52,10 @@ const statusMap = {
     let point = estimateStatistic.statFieldValue.value
     let userName = users[assignee].cn
     let day = users[assignee].day
-    prev[userName] = !prev[userName] ? [{key, summary, status: statusName, assignee, userName, day, point}] : prev[userName].concat([{key, summary, status: statusName, assignee, userName, day, point}])
+    prev[userName] = !prev[userName] ? [{key, summary, status: statusName, assignee, userName, day, point, weekStart, weekEnd, weekRange, note: statusMap[pullStatus]}] : prev[userName].concat([{key, summary, status: statusName, assignee, userName, day, point, weekStart, weekEnd, weekRange, note: statusMap[pullStatus]}])
     return prev
   }, {})
-  let fileName = `${moment().format('YYYYMMDD')}_${statusMap[pullStatus]}.json`
+  let fileName = `${weekStart}-${weekEnd}_${statusMap[pullStatus]}.json`
   fs.writeFile(path.join(__dirname, 'temp', fileName), JSON.stringify(bossIssues), 'utf8', err => {
     if (err) throw err
     console.log(`> 文件/temp/${fileName}已生成`)

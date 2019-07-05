@@ -13,19 +13,22 @@ const convert = async target => {
   // 处理下数据
   let result = Object.values(data).reduce((prev, cur) => prev.concat(cur) ,[]).map(v => {
     return {
+      '时间': v.weekRange,
       '人员': v.userName,
-      '本周工作日': v.day,
-      '本周任务': v.key,
+      '本周实际工作日': v.day,
+      '本周任务': v.summary,
+      'JIRA ID': v.key,
       'story point': v.point,
+      '实际完成': v.point,
       '遇到问题': ''
     }
   })
   // 生成worksheet
   let ws = XLSX.utils.json_to_sheet(result)
   // 合并单元格，返回格式[2, 8, 4 ...]
-  let colsA = Object.keys(ws).filter(v => v.indexOf('A') === 0)
-  let margeData = colsA.reduce((prev, cur, i) => {
-    let lastVal = i === 0 ?  '' : ws[colsA[i - 1]].v
+  let colsB = Object.keys(ws).filter(v => v.indexOf('B') === 0)
+  let margeData = colsB.reduce((prev, cur, i) => {
+    let lastVal = i === 0 ?  '' : ws[colsB[i - 1]].v
     let curVal = ws[cur].v
     if (curVal !== lastVal) {
       prev.push(1)
@@ -35,18 +38,15 @@ const convert = async target => {
     }
     return prev
   }, [])
-  let colAStartAt = 1
   let colBStartAt = 1
+  let colCStartAt = 1
   // 构造合并数据[{s: {c: 0, r: 1}, e: {c: 0, r: 2}}]
-  let colAMergeData = margeData.map(v => {
-    let endIdx = colAStartAt + v - 1
-    let res = {
-      s: {c: 0, r: colAStartAt},
-      e: {c: 0, r: endIdx}
+  let colAMergeData = [
+    {
+      s: {c: 0, r: 1},
+      e: {c: 0, r: colsB.length - 1}
     }
-    colAStartAt = endIdx + 1
-    return res
-  })
+  ]
   let colBMergeData = margeData.map(v => {
     let endIdx = colBStartAt + v - 1
     let res = {
@@ -56,17 +56,28 @@ const convert = async target => {
     colBStartAt = endIdx + 1
     return res
   })
-  ws['!merges'] = [].concat(colAMergeData, colBMergeData)
+  let colCMergeData = margeData.map(v => {
+    let endIdx = colCStartAt + v - 1
+    let res = {
+      s: {c: 2, r: colCStartAt},
+      e: {c: 2, r: endIdx}
+    }
+    colCStartAt = endIdx + 1
+    return res
+  })
+  ws['!merges'] = [].concat(colAMergeData, colBMergeData, colCMergeData)
   // 构造workbook
+  const {weekStart, weekEnd, note} = ((Object.values(data) || [])[0] || [])[0]
+  let name = `${weekStart}-${weekEnd}周${note}`
   let wb = {
-    SheetNames: ['sheet1'],
+    SheetNames: [name],
     Sheets: {
-      'sheet1': ws
+      [name]: ws
     }
   }
   // 导出
-  XLSX.writeFile(wb, './temp/jira.xlsx')
-  console.log('> 文件/temp/jira.xlsx导出成功')
+  XLSX.writeFile(wb, `./temp/${name}.xlsx`)
+  console.log(`> 文件/temp/${name}.xlsx导出成功`)
 }
 
 ;(() => {
