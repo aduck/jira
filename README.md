@@ -1,8 +1,10 @@
 # 用来拉jira数据统计工作量并进行分析导出
 
-## 安装依赖
+## 安装
 
 ```bash
+git clone https://github.com/aduck/jira
+cd jira
 npm install
 ```
 
@@ -34,5 +36,6 @@ npm run convert ./xxx.json # 把json导出为excel
 ## TODOS
 
 * 整合计划和总结，生成一个xlsx
+* 支持命令行模式 `jira plan`
 * xlsx样式优化
 * 定时拉取，数据可视化
