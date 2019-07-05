@@ -11,6 +11,9 @@ const convert = async target => {
   let data = typeof target === 'string' ? JSON.parse(await readFile(target)): target
   console.log('> 开始导出...')
   // 处理下数据
+  let firstData = (Object.values(data || {})[0] || [])[0]
+  if (!firstData) return console.log('没有找到数据')
+  const {weekStart, weekEnd, note, status} = firstData
   let result = Object.values(data).reduce((prev, cur) => prev.concat(cur) ,[]).map(v => {
     return {
       '时间': v.weekRange,
@@ -19,7 +22,7 @@ const convert = async target => {
       '本周任务': v.summary,
       'JIRA ID': v.key,
       'story point': v.point,
-      '实际完成': v.point,
+      '实际完成': status === 'Dev Resolved' ? v.point : '',
       '遇到问题': ''
     }
   })
@@ -67,7 +70,6 @@ const convert = async target => {
   })
   ws['!merges'] = [].concat(colAMergeData, colBMergeData, colCMergeData)
   // 构造workbook
-  const {weekStart, weekEnd, note} = ((Object.values(data) || [])[0] || [])[0]
   let name = `${weekStart}-${weekEnd}周${note}`
   let wb = {
     SheetNames: [name],
